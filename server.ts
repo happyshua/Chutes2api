@@ -2,7 +2,6 @@
 
 import { Application, Router } from "https://deno.land/x/oak@v12.6.1/mod.ts";
 import { oakCors } from "https://deno.land/x/cors@v1.2.2/mod.ts";
-import { v4 as uuid } from "https://deno.land/std@0.220.1/uuid/mod.ts";
 
 // 模型映射字典
 const MODEL_MAPPING: Record<string, string> = {
@@ -74,8 +73,15 @@ function processChunk(chunk: any): string | null {
   }
 }
 
-// 添加CORS
-app.use(oakCors());
+// 添加CORS - 允许所有来源、方法和头部
+app.use(oakCors({
+  origin: "*",
+  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+  allowedHeaders: "*",
+  credentials: true
+}));
 
 // 健康检查端点
 router.get("/", (ctx) => {
@@ -150,6 +156,9 @@ router.post("/v1/chat/completions", async (ctx) => {
     // 处理流式请求
     if (openaiRequest.stream) {
       ctx.response.headers.set("Content-Type", "text/event-stream");
+      ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+      ctx.response.headers.set("Cache-Control", "no-cache");
+      ctx.response.headers.set("Connection", "keep-alive");
       
       const reader = response.body?.getReader();
       if (!reader) {
@@ -286,6 +295,15 @@ router.post("/v1/chat/completions", async (ctx) => {
   }
 });
 
+// 添加OPTIONS预检请求处理
+router.options("/(.*)", (ctx) => {
+  ctx.response.headers.set("Access-Control-Allow-Origin", "*");
+  ctx.response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE");
+  ctx.response.headers.set("Access-Control-Allow-Headers", "*");
+  ctx.response.headers.set("Access-Control-Max-Age", "86400");
+  ctx.response.status = 204;
+});
+
 // 应用路由
 app.use(router.routes());
 app.use(router.allowedMethods());
@@ -300,11 +318,3 @@ app.addEventListener("listen", ({ port }) => {
 
 await app.listen({ port });
 
-</antArtifact><antArtifact identifier="deno-deployment" type="application/vnd.ant.code" language="typescript" title="Deployment Instructions">
-// deno.json - Configuration file for the Deno project
-
-// Deploy to Deno Deploy
-// 1. Create a new project on https://dash.deno.com/
-// 2. Link your GitHub repository or upload server.ts and deno.json
-// 3. Set the entry point to server.ts
-// 4. Add environment variable AUTH_TOKEN if needed
